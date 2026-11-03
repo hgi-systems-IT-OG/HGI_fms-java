@@ -1,0 +1,42 @@
+# Legt bei einem Tag "v<version>" das Release an, z. B. v1.0.0.
+# Assets: Installieren.ps1, FMS_Java_aktualisieren.ps1, FMS_Java_aktualisieren.ps1.sha256
+# Der Befehl aus der README lädt sie über releases/latest/download.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nur ASCII in den Skripten
+        # PowerShell 5.1 liest Dateien ohne BOM als ANSI, Umlaute würden dort zerbrechen
+        run: |
+          if LC_ALL=C grep -n '[^[:print:][:space:]]' *.ps1; then echo "Nicht-ASCII-Zeichen in .ps1"; exit 1; fi
+
+      - name: Paket bauen
+        run: |
+          mkdir dist
+          cp Installieren.ps1 FMS_Java_aktualisieren.ps1 dist/
+          cd dist
+          sha256sum FMS_Java_aktualisieren.ps1 | cut -d' ' -f1 > FMS_Java_aktualisieren.ps1.sha256
+          cat FMS_Java_aktualisieren.ps1.sha256
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --latest \
+            --notes "Auf dem FileMaker Server, PowerShell als Administrator:
+          \`\`\`
+          [Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/Installieren.ps1 | iex
+          \`\`\`" \
+            dist/Installieren.ps1 dist/FMS_Java_aktualisieren.ps1 dist/FMS_Java_aktualisieren.ps1.sha256

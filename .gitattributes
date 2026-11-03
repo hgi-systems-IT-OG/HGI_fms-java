@@ -1,0 +1,2 @@
+# PowerShell 5.1 liest Skripte ohne BOM als ANSI: deshalb nur ASCII, Zeilenenden egal
+*.ps1 text
